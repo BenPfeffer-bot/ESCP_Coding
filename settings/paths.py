@@ -1,11 +1,17 @@
 import sqlite3
 from pathlib import Path
 import os
+from dotenv import load_dotenv
 
 # On crée une constante avec le path de notre projet
 ROOT = Path.cwd()
 
 # Dans la meme mesure, on va crée des constantes pour chacun des paths que nous allons utiliser tout au long du projet
+
+load_dotenv()
+#API
+FRED_API_KEY = os.getenv("fred_api_key")
+
 
 # Support
 SETTINGS = ROOT / "settings"
@@ -15,6 +21,12 @@ LOGS = ROOT / "logs"
 # Projet
 SRC = ROOT / "src"
 UTILS = SRC / "utils"
+API = SRC / "api"
+CURVES = SRC / "curves"
+INSTRUMENTS = SRC / "instruments"
+RISKS = SRC / "risks"
+VISUALISATION = SRC / "plots"
+
 
 # Ici, j'ai rassemblé les folders essentielles pour le bon fonctionnement du projet
 # afin de plus bas faire une if-conditions dans le cas de figures ou les folders n'existerai pas afin d'assurer qu'il se crée
@@ -23,6 +35,12 @@ projet_folder = [SETTINGS,
                 LOGS,
                 SRC,
                 UTILS,
+                API,
+                CURVES,
+                INSTRUMENTS,
+                RISKS,
+                VISUALISATION
+
 
 ]
 # petite boucle pour s'assurer que les folders sont bien présent dans le projet

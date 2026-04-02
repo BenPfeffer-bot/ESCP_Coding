@@ -1,6 +1,6 @@
 import logging
 import sys
-from settings.paths import LOGS
+from .paths import LOGS
 
 
 def get_logger(name: str = "escp", level: int = logging.DEBUG) -> logging.Logger:
