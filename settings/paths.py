@@ -1,4 +1,3 @@
-import sqlite3
 from pathlib import Path
 import os
 from dotenv import load_dotenv
@@ -9,8 +8,27 @@ ROOT = Path.cwd()
 # Dans la meme mesure, on va crée des constantes pour chacun des paths que nous allons utiliser tout au long du projet
 
 load_dotenv()
+
+
 #API
 FRED_API_KEY = os.getenv("fred_api_key")
+
+TICKERS_YFINANCE = {
+    "^IRX": 0.25,   # 13-week T-Bill
+    "^FVX": 5.0,    # 5Y Note
+    "^TNX": 10.0,   # 10Y Note
+    "^TYX": 30.0,   # 30Y Bond
+}
+POLL_INTERVAL = 30  # secondes
+
+FREDAPI_SERIES = {
+    0.5:  "DGS6MO",
+    1.0:  "DGS1",
+    2.0:  "DGS2",
+    3.0:  "DGS3",
+    7.0:  "DGS7",
+    20.0: "DGS20",
+}
 
 
 # Support
