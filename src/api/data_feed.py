@@ -110,6 +110,9 @@ class DataFeed:
         self.logger.info(f"Merge OK — {len(maturites)} points: {list(zip(maturites, rates))}")
         return maturites, rates
 
+
+# Probleme avec la while loop, plutot que de centraliser je vais la séparer
+
     def fetch_snapshot(self) -> tuple:
         """
         Simule un environnement live en boucle infinie
@@ -117,20 +120,35 @@ class DataFeed:
         Retourne le dernier (maturites, rates) à l'interruption (KeyboardInterrupt).
         """
         maturites, rates = None, None
-        while True:
+        try:
+            yf_yields = self.yfinance_datas()
+            fred_yields = self.fredapi_datas()
+            maturites, rates = self.merge_datas(yf_yields, fred_yields)
+            self.last_update = datetime.now()
+            self.last_yields = dict(zip(maturites, rates))
+            
+            self.logger.info(
+                f"[{self.last_update:%H:%M:%S}] Snapshot OK — {len(maturites)} maturités"
+            )
+        except Exception as e:
+            self.logger.error(f"Erreur snapshot: {e}")
+        
+        return maturites, rates
+        
+    def start_live(self, callback=None, max_iterations=None):
+        """
+        """
+        it = 0
+        while max_iterations is None or it < max_iterations:
             try:
-                yf_yields = self.yfinance_datas()
-                fred_yields = self.fredapi_datas()
-                maturites, rates = self.merge_datas(yf_yields, fred_yields)
-                self.last_update = datetime.now()
-                self.last_yields = dict(zip(maturites, rates))
-                self.logger.info(
-                    f"[{self.last_update:%H:%M:%S}] Snapshot OK — {len(maturites)} maturités"
-                )
+                mats, rates = self.fetch_snapshot()
+                if callback:
+                    callback(mats, rates)
             except Exception as e:
-                self.logger.error(f"Erreur snapshot: {e}")
-
+                self.logger.error(f"Erreur: {e}")
+            it += 1
             time.sleep(POLL_INTERVAL)
 
+
 datafeed = DataFeed()
-datafeed.fetch_snapshot()
+datafeed.()
