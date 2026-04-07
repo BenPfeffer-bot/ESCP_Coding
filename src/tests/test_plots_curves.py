@@ -21,7 +21,7 @@ from src.plots.curves import (
 
 
 # Dossier d'export
-EXPORT_DIR = Path("plots/exports")
+EXPORT_DIR = Path("plots/curves")
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 
