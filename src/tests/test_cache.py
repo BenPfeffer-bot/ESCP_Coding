@@ -46,7 +46,7 @@ def test_save_and_load():
 
     # Save
     snapshot_id = save_snapshot(fake_yields, fake_sources)
-    print(f"  ✓ Saved snapshot #{snapshot_id}")
+    print(f"  ok Saved snapshot #{snapshot_id}")
 
     # Load
     result = load_latest_snapshot()
@@ -64,9 +64,9 @@ def test_save_and_load():
     expected_rates = np.array([fake_yields[m] for m in expected_mats])
     np.testing.assert_array_almost_equal(rates, expected_rates, decimal=10)
 
-    print(f"  ✓ Loaded {len(mats)} points, all values match")
-    print(f"  ✓ Maturities: {mats}")
-    print(f"  ✓ Rates:      {rates}")
+    print(f"  ok Loaded {len(mats)} points, all values match")
+    print(f"  ok Maturities: {mats}")
+    print(f"  ok Rates:      {rates}")
 
 
 def test_has_snapshot_today():
@@ -76,7 +76,7 @@ def test_has_snapshot_today():
     has = has_snapshot_today()
     print(f"  has_snapshot_today() = {has}")
     assert has is True, "Should be True after test 1 saved a snapshot"
-    print("  ✓ Returns True after save")
+    print("  ok Returns True after save")
 
 
 def test_multiple_snapshots_same_day():
@@ -102,7 +102,7 @@ def test_multiple_snapshots_same_day():
     mats, rates = load_latest_snapshot()
     assert rates[0] == 0.0385, f"Expected 0.0385 (latest), got {rates[0]}"
     assert rates[1] == 0.0405, f"Expected 0.0405 (latest), got {rates[1]}"
-    print(f"  ✓ load_latest_snapshot() returns the most recent values")
+    print(f"  ok load_latest_snapshot() returns the most recent values")
 
 
 def test_load_nonexistent_date():
@@ -114,7 +114,7 @@ def test_load_nonexistent_date():
     result = load_latest_snapshot(market_date=future)
 
     assert result is None, f"Expected None, got {result}"
-    print(f"  ✓ Returns None for date {future}")
+    print(f"  ok Returns None for date {future}")
 
 
 def test_validation_errors():
@@ -126,14 +126,14 @@ def test_validation_errors():
         save_snapshot({}, {})
         assert False, "Should have raised ValueError for empty yields"
     except ValueError as e:
-        print(f"  ✓ Empty yields rejected: {e}")
+        print(f"  ok Empty yields rejected: {e}")
 
     # Mismatched keys
     try:
         save_snapshot({1.0: 0.04}, {2.0: "fred"})
         assert False, "Should have raised ValueError for mismatched keys"
     except ValueError as e:
-        print(f"  ✓ Mismatched keys rejected: {e}")
+        print(f"  ok Mismatched keys rejected: {e}")
 
 
 def inspect_database():

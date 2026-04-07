@@ -7,6 +7,8 @@ Tickers:
     ^TNX  -> 10Y T-notes yield
     ^TYX  -> 30Y T-bonds yield
 """
+# clean db
+# sqlite3 db/cache/yields.db "DELETE FROM snapshots; VACUUM;"
 
 import time
 import traceback
@@ -97,7 +99,7 @@ class DataFeed:
                     series_id, observation_start=observation_start
                 )
                 latest = data.dropna().iloc[-1]
-                yields[maturity] = latest / 100
+                yields[maturity] = float(latest / 100)
                 self.logger.debug(
                     f"FRED {series_id} (mat={maturity}Y): ok → {latest / 100:.4f}"
                 )

@@ -32,6 +32,9 @@ VISUALISATION = SRC / "plots"
 # DB
 DB_FILE = CACHE_DIR / "yields.db"
 
+# Streamlit
+APP = SRC / "app"
+
 _PROJECT_FOLDERS = [
     SETTINGS,
     DB,
@@ -45,6 +48,7 @@ _PROJECT_FOLDERS = [
     RISKS,
     UTILS,
     VISUALISATION,
+    APP,
 ]
 
 for folder in _PROJECT_FOLDERS:
