@@ -1,0 +1,9 @@
+[tool.ruff]
+# Enable formatting
+format = true
+# Select rules
+select = ["E", "F"]
+# Enable auto-fixing
+fixable = ["ALL"]
+unfixable = []
+

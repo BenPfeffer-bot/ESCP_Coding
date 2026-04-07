@@ -13,7 +13,7 @@ import time
 import numpy as np
 import yfinance as yf
 from datetime import datetime
-from typing import Any, Dict
+from typing import Dict
 from fredapi import Fred
 
 from settings import get_logger, FRED_API_KEY, TICKERS_YFINANCE, POLL_INTERVAL, FREDAPI_SERIES
@@ -27,7 +27,7 @@ class DataFeed:
     -> mats, rates: feed.to_bootstrap_inputs(yields)
     """
 
-    CBOE_MULTIPLIER = 10.0  # CBOE quotes at 10× yield
+    # CBOE_MULTIPLIER = 10.0  # CBOE quotes at 10× yield
 
     def __init__(self):
         """On mets place notre init avec les charactérisques principales pour le feed des données"""
@@ -73,7 +73,7 @@ class DataFeed:
                 self.logger.warning(f"{ticker} = NaN, skipped")
                 continue
 
-            yields_dict[mat] = (raw / self.CBOE_MULTIPLIER) / 100  # → décimal
+            yields_dict[mat] = (raw / 100)  # → décimal
         
         self.logger.info(f"yfinance yields: {yields_dict}")
         return yields_dict
