@@ -8,6 +8,13 @@ Construire un **outil complet de desk de trading taux** en Python : de la récup
 
 **Application desk** : c'est littéralement l'outil de base d'un junior trader taux — fetch les yields, construire la courbe, pricer les swaps, calculer le risque, afficher un dashboard.
 
+---
+
+![Tests](https://github.com/BenPfeffer-bot/ESCP_Coding/actions/workflows/tests.yml/badge.svg)
+![Daily Fetch](https://github.com/BenPfeffer-bot/ESCP_Coding/actions/workflows/daily_fetch.yml/badge.svg)
+
+---
+
 ## État final : PROJET COMPLET 
 
 Tous les modules sont implémentés, testés avec des données live, et documentés. Le dashboard Streamlit est fonctionnel.
