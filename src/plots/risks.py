@@ -24,38 +24,21 @@ def plot_kr_dv01_ladder(
     """
     Bar chart des Key Rate DV01 par maturité.
 
-    Couleurs signées : vert pour positif (long duration sur ce bucket),
-    rouge pour négatif (short duration). Le bucket dominant ressort
-    visuellement.
-
-    Args:
-        kr_dv01: dict {maturity: dv01_value} retourné par compute_key_rate_dv01
-        title: titre du plot
-        ax: axe matplotlib existant (optionnel)
-        show_values: si True, annote chaque barre avec sa valeur
-        log_scale: si True, échelle log symétrique (utile quand le bucket
-                   dominant écrase visuellement les autres)
-
-    Returns:
-        Figure matplotlib
+    Couleurs signées : vert pour positif, rouge pour négatif.
     """
     if ax is None:
         fig, ax = plt.subplots(figsize=(11, 6))
     else:
         fig = ax.figure
 
-    # Tri par maturité croissante
     maturities = sorted(kr_dv01.keys())
     values = [kr_dv01[m] for m in maturities]
 
-    # Couleurs signées
     colors = [COLORS["positive"] if v > 0 else COLORS["negative"] for v in values]
 
-    # Labels x-axis (formatage des maturités)
     x_labels = [f"{int(m * 12)}M" if m < 1 else f"{int(m)}Y" for m in maturities]
     x_pos = np.arange(len(maturities))
 
-    # Bar chart
     bars = ax.bar(
         x_pos,
         values,
@@ -65,14 +48,12 @@ def plot_kr_dv01_ladder(
         zorder=3,
     )
 
-    # Reference line à 0
     ax.axhline(0, color=COLORS["neutral"], linewidth=0.8, zorder=2)
 
     # Annotations sur chaque barre
     if show_values:
         for bar, v in zip(bars, values):
             height = bar.get_height()
-            # Position du label : au-dessus si positif, en-dessous si négatif
             offset = 3 if height >= 0 else -3
             va = "bottom" if height >= 0 else "top"
 
@@ -88,7 +69,7 @@ def plot_kr_dv01_ladder(
                 fontweight="bold",
             )
 
-    # Échelle log symétrique optionnelle (pour swap dont le risque est concentré)
+    # Échelle log symétrique
     if log_scale:
         ax.set_yscale("symlog", linthresh=10)
 
@@ -114,7 +95,19 @@ def plot_kr_dv01_ladder(
     ax.set_xticklabels(x_labels)
     ax.set_xlabel("Maturity bucket")
     ax.set_ylabel("DV01 (EUR/bp)")
-    ax.set_title(title)
+    ax.set_title(title, pad=15)  # ← padding pour éviter chevauchement
+
+    # ── FIX : marge verticale pour éviter le chevauchement du titre ──
+    # En log scale, la barre dominante est très haute et l'annotation
+    # peut déborder. On force de la marge en haut.
+    if log_scale:
+        y_min, y_max = ax.get_ylim()
+        ax.set_ylim(bottom=y_min, top=y_max * 3)  # 3x de marge en haut
+    else:
+        # En linéaire, un peu de marge aussi pour la propreté
+        y_min, y_max = ax.get_ylim()
+        margin = (y_max - y_min) * 0.1
+        ax.set_ylim(bottom=y_min - margin * 0.2, top=y_max + margin)
 
     return fig
 
@@ -131,30 +124,49 @@ def plot_stress_test(
     convexity: Optional[float] = None,
     title: str = "Stress Test — Parallel Shift",
     ax: Optional[plt.Axes] = None,
+    show_residuals: bool = True,
 ) -> Figure:
     """
-    Plot le P&L en fonction d'un parallel shift de la courbe.
-    Affiche optionnellement l'approximation linéaire (DV01 only)
-    et quadratique (DV01 + convexité) pour visualiser l'effet convexité.
+    Plot le P&L en fonction d'un parallel shift + sous-plot de la convexité.
+
+    Le top plot montre le P&L global avec les approximations linéaire
+    et quadratique. Le bottom plot isole l'effet convexité (résidu
+    Full - Linear) pour le rendre visible même quand il est petit
+    devant la linéarité.
 
     Args:
-        shifts_bp: array des shifts en bp (ex: [-100, -50, 0, 50, 100])
+        shifts_bp: array des shifts en bp
         pnl_values: array des P&L correspondants en €
-        dv01: DV01 du swap (pour tracer l'approximation linéaire)
-        convexity: convexité dollar (pour l'approximation quadratique)
-        title: titre du plot
-        ax: axe matplotlib existant (optionnel)
+        dv01: DV01 pour l'approximation linéaire
+        convexity: convexité dollar pour l'approximation quadratique
+        title: titre du plot principal
+        ax: ignoré si show_residuals=True (on crée toujours 2 subplots)
+        show_residuals: si True, ajoute le sous-plot de la convexité isolée
 
     Returns:
         Figure matplotlib
     """
-    if ax is None:
-        fig, ax = plt.subplots()
+    if show_residuals and dv01 is not None:
+        # Layout 2 subplots : P&L en haut, résidu en bas
+        fig, (ax_main, ax_resid) = plt.subplots(
+            2,
+            1,
+            figsize=(10, 8),
+            gridspec_kw={"height_ratios": [2, 1]},
+            sharex=True,
+        )
     else:
-        fig = ax.figure
+        if ax is None:
+            fig, ax_main = plt.subplots()
+        else:
+            fig = ax.figure
+            ax_main = ax
+        ax_resid = None
 
-    # P&L réel (full reprice)
-    ax.plot(
+    # ═══════════════════════════════════════════════════
+    #  TOP PLOT : P&L global
+    # ═══════════════════════════════════════════════════
+    ax_main.plot(
         shifts_bp,
         pnl_values,
         marker="o",
@@ -165,10 +177,9 @@ def plot_stress_test(
         zorder=3,
     )
 
-    # Approximation linéaire (DV01 seul)
     if dv01 is not None:
         linear_approx = -dv01 * shifts_bp
-        ax.plot(
+        ax_main.plot(
             shifts_bp,
             linear_approx,
             color=COLORS["accent"],
@@ -179,10 +190,9 @@ def plot_stress_test(
             zorder=2,
         )
 
-    # Approximation quadratique (DV01 + convexité)
     if dv01 is not None and convexity is not None:
         quad_approx = -dv01 * shifts_bp + 0.5 * convexity * shifts_bp**2
-        ax.plot(
+        ax_main.plot(
             shifts_bp,
             quad_approx,
             color=COLORS["positive"],
@@ -193,16 +203,64 @@ def plot_stress_test(
             zorder=2,
         )
 
-    # Reference lines
-    ax.axhline(0, color=COLORS["neutral"], linewidth=0.6, alpha=0.5)
-    ax.axvline(0, color=COLORS["neutral"], linewidth=0.6, alpha=0.5)
+    ax_main.axhline(0, color=COLORS["neutral"], linewidth=0.6, alpha=0.5)
+    ax_main.axvline(0, color=COLORS["neutral"], linewidth=0.6, alpha=0.5)
+    ax_main.set_ylabel("P&L (EUR)")
+    ax_main.set_title(title, pad=10)
+    ax_main.legend(loc="best")
+    ax_main.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:,.0f}"))
 
-    ax.set_xlabel("Parallel shift (bp)")
-    ax.set_ylabel("P&L (EUR)")
-    ax.set_title(title)
-    ax.legend(loc="best")
+    # ═══════════════════════════════════════════════════
+    #  BOTTOM PLOT : résidus (convexité isolée)
+    # ═══════════════════════════════════════════════════
+    if ax_resid is not None:
+        # Full - Linear isole l'effet non-linéaire, dominé par la convexité
+        linear_approx = -dv01 * shifts_bp
+        residuals = pnl_values - linear_approx
 
-    # Format y-axis avec séparateurs de milliers
-    ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:,.0f}"))
+        ax_resid.plot(
+            shifts_bp,
+            residuals,
+            marker="o",
+            markersize=6,
+            color=COLORS["primary"],
+            linewidth=2.0,
+            label="Residual (Full − Linear)",
+            zorder=3,
+        )
 
+        # Remplissage pour renforcer visuellement la forme en U
+        ax_resid.fill_between(
+            shifts_bp,
+            0,
+            residuals,
+            color=COLORS["primary"],
+            alpha=0.15,
+            zorder=1,
+        )
+
+        if convexity is not None:
+            quad_residual = 0.5 * convexity * shifts_bp**2
+            ax_resid.plot(
+                shifts_bp,
+                quad_residual,
+                color=COLORS["positive"],
+                linewidth=1.5,
+                linestyle=":",
+                alpha=0.9,
+                label="½ × Convexity × shift²",
+                zorder=2,
+            )
+
+        ax_resid.axhline(0, color=COLORS["neutral"], linewidth=0.6, alpha=0.5)
+        ax_resid.axvline(0, color=COLORS["neutral"], linewidth=0.6, alpha=0.5)
+        ax_resid.set_xlabel("Parallel shift (bp)")
+        ax_resid.set_ylabel("Convexity effect (EUR)")
+        ax_resid.set_title("Convexity effect (isolated)", fontsize=11, pad=8)
+        ax_resid.legend(loc="best", fontsize=9)
+        ax_resid.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: f"{x:,.0f}"))
+    else:
+        ax_main.set_xlabel("Parallel shift (bp)")
+
+    fig.tight_layout()
     return fig

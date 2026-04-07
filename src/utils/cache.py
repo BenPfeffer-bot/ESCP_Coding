@@ -221,3 +221,143 @@ def has_snapshot_today() -> bool:
             "SELECT 1 FROM snapshots WHERE market_date = ? LIMIT 1", (today_str,)
         )
         return cursor.fetchone() is not None
+
+
+# ═══════════════════════════════════════════════════════════
+#  FONCTIONS HISTORIQUES (pour le dashboard)
+# ═══════════════════════════════════════════════════════════
+
+
+def get_maturity_history(
+    maturity: float,
+    n_days: Optional[int] = None,
+) -> Tuple[list, list]:
+    """
+    Retourne la série temporelle d'une maturité spécifique.
+
+    Args:
+        maturity: maturité en années (ex: 10.0 pour 10Y)
+        n_days: limite aux N derniers jours (None = tout l'historique)
+
+    Returns:
+        (dates, rates) : listes parallèles, triées par date croissante.
+        Pour chaque jour, prend le rate du dernier snapshot du jour.
+    """
+    query = """
+        SELECT market_date, rate
+        FROM snapshots
+        WHERE maturity = ?
+          AND fetched_at IN (
+              SELECT MAX(fetched_at)
+              FROM snapshots
+              WHERE maturity = ?
+              GROUP BY market_date
+          )
+        ORDER BY market_date ASC
+    """
+    params = [maturity, maturity]
+
+    if n_days is not None:
+        query += " LIMIT ?"
+        params.append(n_days)
+
+    with _connect() as conn:
+        cursor = conn.execute(query, params)
+        rows = cursor.fetchall()
+
+    if not rows:
+        logger.debug(f"No history for maturity {maturity}Y")
+        return [], []
+
+    dates = [date.fromisoformat(r[0]) for r in rows]
+    rates = [r[1] for r in rows]
+
+    logger.info(f"History for {maturity}Y: {len(rates)} points")
+    return dates, rates
+
+
+def get_curve_history(
+    n_days: int = 30,
+) -> list:
+    """
+    Retourne les N dernières courbes complètes.
+
+    Args:
+        n_days: nombre de courbes à retourner (les plus récentes)
+
+    Returns:
+        Liste de dicts, du plus récent au plus ancien :
+        [
+            {'date': '2026-04-07', 'maturities': [...], 'rates': [...]},
+            {'date': '2026-04-06', 'maturities': [...], 'rates': [...]},
+            ...
+        ]
+    """
+    # Liste des dates distinctes, ordre décroissant
+    with _connect() as conn:
+        cursor = conn.execute(
+            """
+            SELECT DISTINCT market_date 
+            FROM snapshots 
+            ORDER BY market_date DESC 
+            LIMIT ?
+        """,
+            (n_days,),
+        )
+        date_strs = [r[0] for r in cursor.fetchall()]
+
+    # Pour chaque date, charger le snapshot
+    history = []
+    for d_str in date_strs:
+        result = load_latest_snapshot(date.fromisoformat(d_str))
+        if result is not None:
+            mats, rates = result
+            history.append(
+                {
+                    "date": d_str,
+                    "maturities": mats.tolist(),
+                    "rates": rates.tolist(),
+                }
+            )
+
+    logger.info(f"Loaded {len(history)} historical curves")
+    return history
+
+
+def get_db_stats() -> dict:
+    """
+    Stats descriptives de la base : utile pour debug et UI dashboard.
+
+    Returns:
+        dict avec : nb_snapshots, nb_dates, date_range, nb_rows, sources
+    """
+    with _connect() as conn:
+        # Snapshots distincts
+        cursor = conn.execute("SELECT COUNT(DISTINCT snapshot_id) FROM snapshots")
+        nb_snapshots = cursor.fetchone()[0]
+
+        # Dates distinctes
+        cursor = conn.execute("SELECT COUNT(DISTINCT market_date) FROM snapshots")
+        nb_dates = cursor.fetchone()[0]
+
+        # Date range
+        cursor = conn.execute("""
+            SELECT MIN(market_date), MAX(market_date) FROM snapshots
+        """)
+        min_date, max_date = cursor.fetchone()
+
+        # Total rows
+        cursor = conn.execute("SELECT COUNT(*) FROM snapshots")
+        nb_rows = cursor.fetchone()[0]
+
+        # Sources
+        cursor = conn.execute("SELECT source, COUNT(*) FROM snapshots GROUP BY source")
+        sources = dict(cursor.fetchall())
+
+    return {
+        "nb_snapshots": nb_snapshots,
+        "nb_dates": nb_dates,
+        "date_range": (min_date, max_date),
+        "nb_rows": nb_rows,
+        "sources": sources,
+    }
