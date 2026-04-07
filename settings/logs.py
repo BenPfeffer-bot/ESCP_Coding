@@ -5,7 +5,7 @@ from .paths import LOGS
 
 def get_logger(name: str = "escp", level: int = logging.DEBUG) -> logging.Logger:
     """
-    Retourne un logger configuré avec un handler console et un format lisible 
+    Retourne un logger configuré avec un handler console et un format lisible
     Facilite le debugging et signale les erreurs critiques dans les pipelines de traitement
     """
     logger = logging.getLogger(name)
@@ -16,12 +16,12 @@ def get_logger(name: str = "escp", level: int = logging.DEBUG) -> logging.Logger
     logger.setLevel(level)
 
     formatter = logging.Formatter(
-        # format classique du logger 
+        # format classique du logger
         fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    # Formattage 
+    # Formattage
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(level)
     console_handler.setFormatter(formatter)

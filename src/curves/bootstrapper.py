@@ -5,16 +5,20 @@ On va utiliser la théorie appliqué dans le livre de Wilmott & Jha:
     Z(0, T_1) = 1 / (1 + r_s(T_1) * tau_1)
     Z(0, T_{j+1}) = (1 - r_s * tau * sum Z_i) / (1 + r_s * tau_j)
 """
+
 import numpy as np
 from settings import get_logger
 from typing import Tuple
 
 logger = get_logger(name="bootstrapper")
 
-def bootstrap_discount_factors(maturities: np.ndarray, par_swap_rates: np.ndarray) -> np.ndarray:
+
+def bootstrap_discount_factors(
+    maturities: np.ndarray, par_swap_rates: np.ndarray
+) -> np.ndarray:
     """
     Bootstrap les discounts factors à partir des taux swap par.
-    
+
     Params:
     - maturities : array — maturités en années, triées croissant
     - par_swap_rates : array — taux swap par (décimal, ex: 0.03 = 3%)
@@ -24,8 +28,10 @@ def bootstrap_discount_factors(maturities: np.ndarray, par_swap_rates: np.ndarra
     """
     n = len(maturities)
     assert n == len(par_swap_rates), "Maturities and rates must have same length"
-    
-    logger.info(f"Démarrage bootstrap DF: maturities={maturities}, par_swap_rates={par_swap_rates}")
+
+    logger.info(
+        f"Démarrage bootstrap DF: maturities={maturities}, par_swap_rates={par_swap_rates}"
+    )
     discount_factors = np.zeros(n)
 
     for j in range(n):
@@ -64,11 +70,11 @@ def bootstrap_discount_factors(maturities: np.ndarray, par_swap_rates: np.ndarra
 def discount_factors_to_zero_rates(
     maturities: np.ndarray,
     discount_factors: np.ndarray,
-    compounding: str = "continuous"
+    compounding: str = "continuous",
 ) -> np.ndarray:
     """
     Convertit les discount factors en taux zéro-coupon.
-    
+
     "continuous": y = -ln(Z) / T
     "annuel":  y = Z^(-1/T) - 1
     """
@@ -85,8 +91,7 @@ def discount_factors_to_zero_rates(
 
 
 def extract_forward_rates(
-    maturities: np.ndarray,
-    discount_factors: np.ndarray
+    maturities: np.ndarray, discount_factors: np.ndarray
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Taux forward implicites entre maturités consécutives.
@@ -96,17 +101,17 @@ def extract_forward_rates(
     n = len(maturities)
     forward_rates = np.zeros(n)
     forward_mids = np.zeros(n)
-    
+
     forward_rates[0] = -np.log(discount_factors[0]) / maturities[0]
     forward_mids[0] = maturities[0] / 2.0
-    logger.debug(f"Forward[0] (T={maturities[0]/2.0:.4f}) = {forward_rates[0]}")
+    logger.debug(f"Forward[0] (T={maturities[0] / 2.0:.4f}) = {forward_rates[0]}")
 
     for i in range(1, n):
         dt = maturities[i] - maturities[i - 1]
         forward_rates[i] = -np.log(discount_factors[i] / discount_factors[i - 1]) / dt
         forward_mids[i] = (maturities[i] + maturities[i - 1]) / 2.0
         logger.debug(f"Forward[{i}] (T={forward_mids[i]:.4f}) = {forward_rates[i]}")
-    
+
     logger.info(f"Taux forwards calculés: {forward_rates}")
     return forward_mids, forward_rates
 
@@ -115,7 +120,7 @@ def validate_bootstrapping(
     maturities: np.ndarray,
     par_swap_rates: np.ndarray,
     discount_factors: np.ndarray,
-    tolerance: float = 1e-10
+    tolerance: float = 1e-10,
 ) -> bool:
     """Vérifie que chaque swap re-price à par (PV = 1)"""
     logger.info("Validation du bootstrapping...")
@@ -132,6 +137,7 @@ def validate_bootstrapping(
             return False
     logger.info("Validation du bootstrapping: SUCCÈS")
     return True
+
 
 # ===========================================================================
 # TEST

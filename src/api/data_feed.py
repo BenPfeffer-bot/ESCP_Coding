@@ -16,7 +16,14 @@ from datetime import datetime
 from typing import Dict
 from fredapi import Fred
 
-from settings import get_logger, FRED_API_KEY, TICKERS_YFINANCE, POLL_INTERVAL, FREDAPI_SERIES
+from settings import (
+    get_logger,
+    FRED_API_KEY,
+    TICKERS_YFINANCE,
+    POLL_INTERVAL,
+    FREDAPI_SERIES,
+)
+
 
 class DataFeed:
     """
@@ -40,7 +47,7 @@ class DataFeed:
         self.fred = Fred(api_key=FRED_API_KEY)
         self.logger.info(f"DataFeed initialisé: tickers={self.tickers}")
         self._fred_cache = {}
-        self._fred_cache_date = None        
+        self._fred_cache_date = None
 
     def yfinance_datas(self) -> Dict[float, float]:
         """
@@ -73,8 +80,8 @@ class DataFeed:
                 self.logger.warning(f"{ticker} = NaN, skipped")
                 continue
 
-            yields_dict[mat] = (raw / 100)  # → décimal
-        
+            yields_dict[mat] = raw / 100  # → décimal
+
         self.logger.info(f"yfinance yields: {yields_dict}")
         return yields_dict
 
@@ -87,12 +94,14 @@ class DataFeed:
         if self._fred_cache_date == today and self._fred_cache:
             self.logger.debug("FRED cache hit")
             return self._fred_cache.copy()
-        
+
         yields = {}
 
         for maturity, series_id in FREDAPI_SERIES.items():
             try:
-                data = self.fred.get_series(series_id, observation_start=observation_start)
+                data = self.fred.get_series(
+                    series_id, observation_start=observation_start
+                )
                 latest = data.dropna().iloc[-1]
                 yields[maturity] = latest / 100
             except Exception as e:
@@ -101,7 +110,7 @@ class DataFeed:
         self.logger.info(f"FRED yields: {yields}")
         self._fred_cache = yields
         self._fred_cache_date = today
-        
+
         return yields
 
     def merge_datas(self, yf_yields: Dict, fred_yields: Dict) -> tuple:
@@ -110,19 +119,21 @@ class DataFeed:
         yf_yields écrase fred_yields en cas de conflit (CBOE prioritaire).
         Retourne: (maturites: np.ndarray, rates: np.ndarray)
         """
-        # je pose qd mm un debugging sur le merge car 
+        # je pose qd mm un debugging sur le merge car
         # par expérience souvent y'a des problèmes dessus
         try:
-            # on pose les datas dans un dict, 
+            # on pose les datas dans un dict,
             # on s'assures de bien prendre toutes les valeurs
             merged = {**fred_yields, **yf_yields}
 
             # sanity check sur les yields
             for mat, rate in merged.items():
                 if rate <= 0:
-                    self.logger.warning(f"Yield négatif: {mat}Y = {rate*100:.3f}%")
+                    self.logger.warning(f"Yield négatif: {mat}Y = {rate * 100:.3f}%")
                 if rate > 0.20:
-                    self.logger.error(f"Yield suspect >20%: {mat}Y = {rate*100:.1f}% — check CBOE ÷10")
+                    self.logger.error(
+                        f"Yield suspect >20%: {mat}Y = {rate * 100:.1f}% — check CBOE ÷10"
+                    )
 
             # Simple tri des maturités
             sorted_mats = sorted(merged.keys())
@@ -134,9 +145,10 @@ class DataFeed:
             self.logger.error(f"Erreur merge: {e}")
             raise
 
-        self.logger.info(f"Merge OK — {len(maturites)} points: {list(zip(maturites, rates))}")
+        self.logger.info(
+            f"Merge OK — {len(maturites)} points: {list(zip(maturites, rates))}"
+        )
         return maturites, rates
-
 
     def fetch_snapshot(self) -> tuple:
         """
@@ -150,14 +162,14 @@ class DataFeed:
         maturites, rates = self.merge_datas(yf_yields, fred_yields)
         self.last_update = datetime.now()
         self.last_yields = dict(zip(maturites, rates))
-        
+
         self.logger.info(
             f"[{self.last_update:%H:%M:%S}] Snapshot OK — {len(maturites)} maturités"
         )
         return maturites, rates
-        
+
     def start_live(self, callback=None, max_iterations=None):
-        """Polling loop: fetch + callback à chaque tick, 
+        """Polling loop: fetch + callback à chaque tick,
         toutes les POLL_INTERVAL secondes."""
         it = 0
         while max_iterations is None or it < max_iterations:
