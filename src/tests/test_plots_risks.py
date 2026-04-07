@@ -28,7 +28,7 @@ from src.plots.risks import plot_kr_dv01_ladder, plot_stress_test
 from src.plots.history import plot_historical_maturity, plot_curve_evolution
 
 
-EXPORT_DIR = Path("plots/risks")
+EXPORT_DIR = Path("plots/output/risks")
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 
