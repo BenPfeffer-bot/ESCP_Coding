@@ -70,7 +70,7 @@ class YieldCurveInterpolator:
             "maturities doivent être strictement croissantes"
         )
 
-        # Methode linéaire
+        # Méthode linéaire
         if self.method == "linear":
             self._interp = interp1d(
                 self.maturities,
@@ -81,10 +81,25 @@ class YieldCurveInterpolator:
         # Méthode cubic (+ relevant)
         elif self.method == "cubic_spline":
             self._interp = CubicSpline(self.maturities, self.zero_rates)
-        # Méthode log-lin //  Interpoler sur ln(Z) = -y*T
-        # ajouter plus tard en bonus
-        # elif self.method == "log_linear":
 
+        # Méthode log-lin // Interpoler sur ln(Z) = -y*T
+        elif self.method == "log_linear":
+            # On interpole log(Z(0,T)) de façon linéaire, puis on reconstruit Z
+            # ln(Z) = -y*T donc: on stocke ln(Z) comme y cible à interpoler
+            ln_z = np.log(self.discount_factors)
+            self._ln_z_interp = interp1d(
+                self.maturities, ln_z, kind="linear", fill_value="extrapolate"
+            )
+
+            def log_linear_zero_rate(T):
+                # ln(Z(0,T)) interpolé
+                ln_z_T = float(self._ln_z_interp(T))
+                # y(T) = -ln(Z(0,T))/T
+                if T == 0:
+                    return 0.0
+                return -ln_z_T / T
+
+            self._interp = log_linear_zero_rate
         else:
             self.logger.error(f"Unknown method received: {self.method}")
             raise ValueError(f"Unknown method: {self.method}")

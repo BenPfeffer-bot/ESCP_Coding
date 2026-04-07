@@ -9,6 +9,7 @@ Tickers:
 -> à savoir les yield CBOE sont quotés 10x du yield
 """
 
+import json
 import time
 import traceback
 import numpy as np
@@ -23,7 +24,9 @@ from settings import (
     TICKERS_YFINANCE,
     POLL_INTERVAL,
     FREDAPI_SERIES,
+    CACHE_DIR,
 )
+from src.utils.cache import save_snapshot, load_latest_snapshot
 
 
 class DataFeed:
@@ -37,16 +40,24 @@ class DataFeed:
 
     # CBOE_MULTIPLIER = 10.0  # CBOE quotes at 10× yield
 
-    def __init__(self):
-        """On mets place notre init avec les charactérisques principales pour le feed des données"""
-        # Logger d'instance — pour s'assurer que le handler n'est pas partagé/global
+    def __init__(self, use_cache: bool = True):
+        """
+        Args:
+        use_cache: si True, essaie le cache SQLite avant de fetcher.
+        Mettre False pour forcer un refresh complet.
+        """
+        self.use_cache = use_cache
+
+        # Logger d'instance
         self.logger = get_logger(name="data-feed")
         self.tickers = list(TICKERS_YFINANCE.keys())
         self.maturities = list(TICKERS_YFINANCE.values())
         self.last_update = None
         self.last_yields = None
         self.fred = Fred(api_key=FRED_API_KEY)
-        self.logger.info(f"DataFeed initialisé: tickers={self.tickers}")
+        self.logger.info(
+            f"DataFeed initialisé: tickers={self.tickers}, use_cache={use_cache}"
+        )
         self._fred_cache = {}
         self._fred_cache_date = None
 
@@ -167,13 +178,24 @@ class DataFeed:
         )
         return maturites, rates
 
-    def fetch_snapshot(self) -> tuple:
+    def fetch_snapshot(self, use_cache=True) -> tuple:
         """
         Simule un environnement live en boucle infinie
         À chaque itération: fetch yfinance + FRED, merge, mise à jour de l'état.
         Retourne le dernier (maturites, rates) à l'interruption (KeyboardInterrupt).
         """
         maturites, rates = None, None
+        today = datetime.now().date().isoformat()
+        cache_file = CACHE_DIR / f"yields_{today}.json"
+
+        if use_cache and cache_file.exists():
+            self.logger.info(f"Cache hit: {cache_file}")
+            with open(cache_file) as f:
+                data = json.load(f)
+            mats = np.array(data["maturities"])
+            rates = np.array(data["rates"])
+            return mats, rates
+
         yf_yields = self.yfinance_datas()
         fred_yields = self.fredapi_datas()
         maturites, rates = self.merge_datas(yf_yields, fred_yields)
@@ -192,7 +214,20 @@ class DataFeed:
             self.logger.info(
                 f"[{self.last_update:%H:%M:%S}] Snapshot OK — {n_got} maturités"
             )
-        return maturites, rates
+
+        # Sauvegarde après fetch réussi
+        with open(cache_file, "w") as f:
+            json.dump(
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "maturities": mats.tolist(),
+                    "rates": rates.tolist(),
+                },
+                f,
+                indent=2,
+            )
+
+        return mats, rates
 
     def start_live(self, callback=None, max_iterations=None):
         """Polling loop: fetch + callback à chaque tick,

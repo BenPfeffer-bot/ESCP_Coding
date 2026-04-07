@@ -1,71 +1,51 @@
+"""
+paths.py — Constantes de chemins du projet.
+
+Toutes les constantes ROOT-relative passent par ce module.
+Aucun path ne doit être hardcodé ailleurs dans le code.
+"""
+
 from pathlib import Path
-import os
-from dotenv import load_dotenv
 
-# On crée une constante avec le path de notre projet
-ROOT = Path.cwd()
+# root
+ROOT = Path(__file__).resolve().parent.parent
 
-# Dans la meme mesure, on va crée des constantes pour chacun des paths que nous allons utiliser tout au long du projet
-
-load_dotenv()
-
-
-# API
-FRED_API_KEY = os.getenv("fred_api_key")
-
-TICKERS_YFINANCE = {
-    "^IRX": 0.25,  # 13-week T-Bill
-    "^FVX": 5.0,  # 5Y Note
-    "^TNX": 10.0,  # 10Y Note
-    "^TYX": 30.0,  # 30Y Bond
-}
-POLL_INTERVAL = 30  # secondes
-
-FREDAPI_SERIES = {
-    0.5: "DGS6MO",
-    1.0: "DGS1",
-    2.0: "DGS2",
-    3.0: "DGS3",
-    7.0: "DGS7",
-    20.0: "DGS20",
-}
-
-
-# Support
+# top-level
 SETTINGS = ROOT / "settings"
 DB = ROOT / "db"
+CACHE_DIR = DB / "cache"
 LOGS = ROOT / "logs"
+NOTEBOOKS = ROOT / "notebooks"
 
-# Projet
+# Database file
+DB_FILE = CACHE_DIR / "yields.db"
+
+# Source code
 SRC = ROOT / "src"
-UTILS = SRC / "utils"
 API = SRC / "api"
 CURVES = SRC / "curves"
 INSTRUMENTS = SRC / "instruments"
 RISKS = SRC / "risks"
+UTILS = SRC / "utils"
 VISUALISATION = SRC / "plots"
 
+# DB
+DB_FILE = CACHE_DIR / "yields.db"
 
-# Ici, j'ai rassemblé les folders essentielles pour le bon fonctionnement du projet
-# afin de plus bas faire une if-conditions dans le cas de figures ou les folders n'existerai pas afin d'assurer qu'il se crée
-projet_folder = [
+_PROJECT_FOLDERS = [
     SETTINGS,
     DB,
+    CACHE_DIR,
     LOGS,
+    NOTEBOOKS,
     SRC,
-    UTILS,
     API,
     CURVES,
     INSTRUMENTS,
     RISKS,
+    UTILS,
     VISUALISATION,
 ]
-# petite boucle pour s'assurer que les folders sont bien présent dans le projet
-# ça nous permets d'éviter les problèmes basiques liées à l'infrastructure
-try:
-    for i in projet_folder:
-        if not os.path.exists(i):
-            os.makedirs(i)
-except FileExistsError:
-    print("Folder already exists")
-    raise
+
+for folder in _PROJECT_FOLDERS:
+    folder.mkdir(parents=True, exist_ok=True)
