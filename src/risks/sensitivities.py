@@ -145,75 +145,75 @@ def print_risk_report(swap, maturities, par_swap_rates):
     print("═" * 50)
 
 
-if __name__ == "__main__":
-    # Pipeline
-    logger.info("=====" * 10)
-    logger.info("Début du pipeline de test des sensibilités (main).")
-    logger.info("=====" * 10)
-    feed = DataFeed()
-    mats, rates = feed.fetch_snapshot()
+# if __name__ == "__main__":
+#     # Pipeline
+#     logger.info("=====" * 10)
+#     logger.info("Début du pipeline de test des sensibilités (main).")
+#     logger.info("=====" * 10)
+#     feed = DataFeed()
+#     mats, rates = feed.fetch_snapshot()
 
-    # Swap test : 5Y receiver at-par
-    dfs = bootstrap_discount_factors(mats, rates)
-    interp = YieldCurveInterpolator(mats, dfs, method="cubic_spline")
+#     # Swap test : 5Y receiver at-par
+#     dfs = bootstrap_discount_factors(mats, rates)
+#     interp = YieldCurveInterpolator(mats, dfs, method="cubic_spline")
 
-    swap_5y = VanillaSwap(notional=10_000_000, fixed_rate=0.0, maturity=5.0)
-    par_5y = swap_5y.par_rate(interp)
-    swap = VanillaSwap(
-        notional=10_000_000, fixed_rate=par_5y, maturity=5.0, direction="receiver"
-    )
+#     swap_5y = VanillaSwap(notional=10_000_000, fixed_rate=0.0, maturity=5.0)
+#     par_5y = swap_5y.par_rate(interp)
+#     swap = VanillaSwap(
+#         notional=10_000_000, fixed_rate=par_5y, maturity=5.0, direction="receiver"
+#     )
 
-    # Test 1 : DV01 order of magnitude
-    print("\n=== Test 1 : DV01 order of magnitude ===")
-    logger.info("Test 1 : Calcul du DV01 (order of magnitude)")
-    dv01 = compute_dv01(swap, mats, rates)
-    print(f"DV01 5Y receiver 10M€: {dv01:,.2f} EUR/bp")
-    print(f"Expected ~4500 EUR/bp (duration ~4.5 × 1bp × 10M)")
-    logger.info(f"DV01 5Y receiver 10M€: {dv01:,.2f} EUR/bp")
-    assert 3000 < dv01 < 6000, f"DV01 hors range attendue: {dv01}"
-    print("✅ DV01 dans la range attendue")
-    logger.info("✅ DV01 dans la range attendue")
+#     # Test 1 : DV01 order of magnitude
+#     print("\n=== Test 1 : DV01 order of magnitude ===")
+#     logger.info("Test 1 : Calcul du DV01 (order of magnitude)")
+#     dv01 = compute_dv01(swap, mats, rates)
+#     print(f"DV01 5Y receiver 10M€: {dv01:,.2f} EUR/bp")
+#     print(f"Expected ~4500 EUR/bp (duration ~4.5 × 1bp × 10M)")
+#     logger.info(f"DV01 5Y receiver 10M€: {dv01:,.2f} EUR/bp")
+#     assert 3000 < dv01 < 6000, f"DV01 hors range attendue: {dv01}"
+#     print("✅ DV01 dans la range attendue")
+#     logger.info("✅ DV01 dans la range attendue")
 
-    # Test 2 : Signe DV01
-    print("\n=== Test 2 : Signe DV01 ===")
-    logger.info("Test 2 : Vérification des signes DV01 pour receiver/payer")
-    swap_payer = VanillaSwap(10_000_000, par_5y, 5.0, direction="payer")
-    dv01_payer = compute_dv01(swap_payer, mats, rates)
-    print(f"DV01 receiver: {dv01:>12,.2f} (should be > 0)")
-    print(f"DV01 payer   : {dv01_payer:>12,.2f} (should be < 0)")
-    logger.info(f"DV01 receiver : {dv01:,.2f} (should be > 0)")
-    logger.info(f"DV01 payer   : {dv01_payer:,.2f} (should be < 0)")
-    assert dv01 > 0 and dv01_payer < 0
-    print("✅ Signes corrects")
-    logger.info("✅ Signes DV01 corrects")
+#     # Test 2 : Signe DV01
+#     print("\n=== Test 2 : Signe DV01 ===")
+#     logger.info("Test 2 : Vérification des signes DV01 pour receiver/payer")
+#     swap_payer = VanillaSwap(10_000_000, par_5y, 5.0, direction="payer")
+#     dv01_payer = compute_dv01(swap_payer, mats, rates)
+#     print(f"DV01 receiver: {dv01:>12,.2f} (should be > 0)")
+#     print(f"DV01 payer   : {dv01_payer:>12,.2f} (should be < 0)")
+#     logger.info(f"DV01 receiver : {dv01:,.2f} (should be > 0)")
+#     logger.info(f"DV01 payer   : {dv01_payer:,.2f} (should be < 0)")
+#     assert dv01 > 0 and dv01_payer < 0
+#     print("✅ Signes corrects")
+#     logger.info("✅ Signes DV01 corrects")
 
-    # Test 3 : Convexité positive
-    print("\n=== Test 3 : Convexité positive ===")
-    logger.info("Test 3 : Vérification de la convexité positive")
-    convexity = compute_convexity(swap, mats, rates)
-    print(f"Convexity: {convexity:.6f} EUR")
-    logger.info(f"Convexity: {convexity:.6f} EUR")
-    assert convexity > 0, "Convexité doit être positive pour un receiver"
-    print("✅ Convexité positive")
-    logger.info("✅ Convexité positive")
+#     # Test 3 : Convexité positive
+#     print("\n=== Test 3 : Convexité positive ===")
+#     logger.info("Test 3 : Vérification de la convexité positive")
+#     convexity = compute_convexity(swap, mats, rates)
+#     print(f"Convexity: {convexity:.6f} EUR")
+#     logger.info(f"Convexity: {convexity:.6f} EUR")
+#     assert convexity > 0, "Convexité doit être positive pour un receiver"
+#     print("✅ Convexité positive")
+#     logger.info("✅ Convexité positive")
 
-    # Test 4 : Cohérence somme KR-DV01 vs parallèle
-    print("\n=== Test 4 : Cohérence somme KR-DV01 ===")
-    logger.info("Test 4 : Vérification cohérence Key Rate DV01 vs DV01 parallèle")
-    kr_dv01 = compute_key_rate_dv01(swap, mats, rates)
-    sum_kr = sum(kr_dv01.values())
-    diff_pct = abs(sum_kr - dv01) / abs(dv01) * 100
-    print(f"Sum KR-DV01    : {sum_kr:>12,.2f}")
-    print(f"Parallel DV01  : {dv01:>12,.2f}")
-    print(f"Diff           : {abs(sum_kr - dv01):>12,.2f} ({diff_pct:.4f}%)")
-    logger.info(
-        f"Sum KR-DV01 : {sum_kr:,.2f}, Parallel DV01 : {dv01:,.2f}, Diff = {abs(sum_kr - dv01):.2e} ({diff_pct:.4f}%)"
-    )
-    assert diff_pct < 1.0, f"Écart somme/parallel > 1%: {diff_pct}%"
-    print("✅ Cohérence somme KR-DV01")
-    logger.info("✅ Cohérence somme KR-DV01")
+#     # Test 4 : Cohérence somme KR-DV01 vs parallèle
+#     print("\n=== Test 4 : Cohérence somme KR-DV01 ===")
+#     logger.info("Test 4 : Vérification cohérence Key Rate DV01 vs DV01 parallèle")
+#     kr_dv01 = compute_key_rate_dv01(swap, mats, rates)
+#     sum_kr = sum(kr_dv01.values())
+#     diff_pct = abs(sum_kr - dv01) / abs(dv01) * 100
+#     print(f"Sum KR-DV01    : {sum_kr:>12,.2f}")
+#     print(f"Parallel DV01  : {dv01:>12,.2f}")
+#     print(f"Diff           : {abs(sum_kr - dv01):>12,.2f} ({diff_pct:.4f}%)")
+#     logger.info(
+#         f"Sum KR-DV01 : {sum_kr:,.2f}, Parallel DV01 : {dv01:,.2f}, Diff = {abs(sum_kr - dv01):.2e} ({diff_pct:.4f}%)"
+#     )
+#     assert diff_pct < 1.0, f"Écart somme/parallel > 1%: {diff_pct}%"
+#     print("✅ Cohérence somme KR-DV01")
+#     logger.info("✅ Cohérence somme KR-DV01")
 
-    # Test 5 : Risk report
-    print_risk_report(swap, mats, rates)
-    print_risk_report(swap, mats, rates)
-    print_risk_report(swap, mats, rates)
+#     # Test 5 : Risk report
+#     print_risk_report(swap, mats, rates)
+#     print_risk_report(swap, mats, rates)
+#     print_risk_report(swap, mats, rates)

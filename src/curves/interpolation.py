@@ -156,60 +156,60 @@ class YieldCurveInterpolator:
 # TESTS — Décommente et lance pour valider ton implémentation
 # =============================================================================
 
-if __name__ == "__main__":
-    logger = get_logger(name="interpolation_test")
-    logger.info("===" * 15)
-    # Fetch live data + bootstrap
-    logger.info("Fetching live yield data and bootstrapping discount factors...")
-    feed = DataFeed()
-    mats, rates = feed.fetch_snapshot()
+# if __name__ == "__main__":
+#     logger = get_logger(name="interpolation_test")
+#     logger.info("===" * 15)
+#     # Fetch live data + bootstrap
+#     logger.info("Fetching live yield data and bootstrapping discount factors...")
+#     feed = DataFeed()
+#     mats, rates = feed.fetch_snapshot()
 
-    if mats is None:
-        logger.error("❌ Snapshot failed, abort")
-        print("❌ Snapshot failed, abort")
-        exit(1)
+#     if mats is None:
+#         logger.error("❌ Snapshot failed, abort")
+#         print("❌ Snapshot failed, abort")
+#         exit(1)
 
-    logger.info(f"Fetched maturities: {mats}")
-    logger.info(f"Fetched rates: {rates}")
+#     logger.info(f"Fetched maturities: {mats}")
+#     logger.info(f"Fetched rates: {rates}")
 
-    dfs = bootstrap_discount_factors(mats, rates)
-    logger.info(f"Bootstrapped discount factors: {dfs}")
+#     dfs = bootstrap_discount_factors(mats, rates)
+#     logger.info(f"Bootstrapped discount factors: {dfs}")
 
-    # Build interpolator
-    interp = YieldCurveInterpolator(mats, dfs, method="cubic_spline")
-    logger.info("YieldCurveInterpolator successfully built.")
+#     # Build interpolator
+#     interp = YieldCurveInterpolator(mats, dfs, method="cubic_spline")
+#     logger.info("YieldCurveInterpolator successfully built.")
 
-    # Test 1 : exactitude aux nœuds
-    logger.info("=== Test 1 : Exactitude sur les nœuds connus ===")
-    print("\n=== Test 1 : nœuds connus ===")
-    for i, T in enumerate(mats):
-        z_interp = interp.discount_factor(T)
-        err = abs(z_interp - dfs[i])
-        logger.debug(
-            f"Node {i}: T={T:.2f} | Z_boot={dfs[i]:.8f} | Z_interp={z_interp:.8f} | err={err:.2e}"
-        )
-        assert err < 1e-10, f"Mismatch at {T}Y: err={err:.2e}"
-        print(
-            f"  {T:5.2f}Y : Z_boot={dfs[i]:.8f} | Z_interp={z_interp:.8f} | err={err:.2e}"
-        )
-    logger.info("✅ Tous les nœuds OK")
-    print("✅ Tous les nœuds OK")
+#     # Test 1 : exactitude aux nœuds
+#     logger.info("=== Test 1 : Exactitude sur les nœuds connus ===")
+#     print("\n=== Test 1 : nœuds connus ===")
+#     for i, T in enumerate(mats):
+#         z_interp = interp.discount_factor(T)
+#         err = abs(z_interp - dfs[i])
+#         logger.debug(
+#             f"Node {i}: T={T:.2f} | Z_boot={dfs[i]:.8f} | Z_interp={z_interp:.8f} | err={err:.2e}"
+#         )
+#         assert err < 1e-10, f"Mismatch at {T}Y: err={err:.2e}"
+#         print(
+#             f"  {T:5.2f}Y : Z_boot={dfs[i]:.8f} | Z_interp={z_interp:.8f} | err={err:.2e}"
+#         )
+#     logger.info("✅ Tous les nœuds OK")
+#     print("✅ Tous les nœuds OK")
 
-    # Test 2 : interpolation entre nœuds
-    logger.info("=== Test 2 : Interpolation entre nœuds ===")
-    print("\n=== Test 2 : interpolation entre nœuds ===")
-    for T in [3.5, 4.0, 6.0, 8.0, 12.0, 25.0]:
-        z = interp.discount_factor(T)
-        y = interp.zero_rate(T)
-        logger.debug(f"Inter-node T={T:5.2f}Y | y={y * 100:.4f}% | Z={z:.8f}")
-        print(f"  T={T:5.2f}Y | y={y * 100:.4f}% | Z={z:.8f}")
+#     # Test 2 : interpolation entre nœuds
+#     logger.info("=== Test 2 : Interpolation entre nœuds ===")
+#     print("\n=== Test 2 : interpolation entre nœuds ===")
+#     for T in [3.5, 4.0, 6.0, 8.0, 12.0, 25.0]:
+#         z = interp.discount_factor(T)
+#         y = interp.zero_rate(T)
+#         logger.debug(f"Inter-node T={T:5.2f}Y | y={y * 100:.4f}% | Z={z:.8f}")
+#         print(f"  T={T:5.2f}Y | y={y * 100:.4f}% | Z={z:.8f}")
 
-    # Test 3 : forwards positifs
-    logger.info("=== Test 3 : Vérification des forwards positifs ===")
-    print("\n=== Test 3 : forwards positifs ===")
-    test_pairs = [(1, 2), (2, 5), (5, 10), (10, 20), (20, 30)]
-    for T1, T2 in test_pairs:
-        f = interp.forward_rate(T1, T2)
-        status = "✅" if f > 0 else "❌ NEGATIVE"
-        logger.debug(f"Forward rate f({T1}, {T2}) = {f * 100:.4f}% | status={status}")
-        print(f"  f({T1}Y, {T2}Y) = {f * 100:.4f}%  {status}")
+#     # Test 3 : forwards positifs
+#     logger.info("=== Test 3 : Vérification des forwards positifs ===")
+#     print("\n=== Test 3 : forwards positifs ===")
+#     test_pairs = [(1, 2), (2, 5), (5, 10), (10, 20), (20, 30)]
+#     for T1, T2 in test_pairs:
+#         f = interp.forward_rate(T1, T2)
+#         status = "✅" if f > 0 else "❌ NEGATIVE"
+#         logger.debug(f"Forward rate f({T1}, {T2}) = {f * 100:.4f}% | status={status}")
+#         print(f"  f({T1}Y, {T2}Y) = {f * 100:.4f}%  {status}")

@@ -1,0 +1,96 @@
+name: Daily Market Data Fetch
+
+on:
+  schedule:
+    # 22:00 UTC, Monday-Friday (après fermeture des marchés US ~21:00 UTC)
+    # Ajuste selon ton besoin : https://crontab.guru/
+    - cron: '0 22 * * 1-5'
+  workflow_dispatch:  # Permet de déclencher manuellement depuis l'UI GitHub
+
+# Évite que deux runs parallèles se chevauchent et créent des conflits git
+concurrency:
+  group: daily-fetch
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10  # kill le job si ça dépasse (évite de bloquer des heures)
+    
+    permissions:
+      contents: write  # Nécessaire pour commit et push
+    
+    steps:
+      # ─────────────────────────────────────────────────
+      #  1. Checkout du repo
+      # ─────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # token avec les permissions de push (fourni automatiquement)
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      # ─────────────────────────────────────────────────
+      #  2. Setup Python avec cache pip
+      # ─────────────────────────────────────────────────
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'  # ← cache automatique des deps → ~2 min gagnées
+          cache-dependency-path: requirements.txt
+      
+      # ─────────────────────────────────────────────────
+      #  3. Install dependencies
+      # ─────────────────────────────────────────────────
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      # ─────────────────────────────────────────────────
+      #  4. Run the daily fetch
+      # ─────────────────────────────────────────────────
+      - name: Fetch market data
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: |
+          python -m scripts.daily_fetch
+      
+      # ─────────────────────────────────────────────────
+      #  5. Show DB stats (for the GitHub Actions log)
+      # ─────────────────────────────────────────────────
+      - name: Show DB stats
+        run: |
+          echo "### Database stats" >> $GITHUB_STEP_SUMMARY
+          python -c "
+          from src.utils.cache import get_db_stats
+          stats = get_db_stats()
+          print(f\"Total snapshots : {stats['nb_snapshots']}\")
+          print(f\"Distinct dates  : {stats['nb_dates']}\")
+          print(f\"Date range      : {stats['date_range']}\")
+          print(f\"Total rows      : {stats['nb_rows']}\")
+          print(f\"Sources         : {stats['sources']}\")
+          " | tee -a $GITHUB_STEP_SUMMARY
+      
+      # ─────────────────────────────────────────────────
+      #  6. Commit and push the updated DB
+      # ─────────────────────────────────────────────────
+      - name: Commit and push database
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          git add -f db/cache/yields.db
+          
+          # Détecte s'il y a quelque chose à commiter
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M UTC")
+          git commit -m "chore(data): daily snapshot ${TIMESTAMP}"
+          git push
+          
+          echo "✅ Database updated and pushed"

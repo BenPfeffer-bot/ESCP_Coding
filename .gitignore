@@ -1,7 +1,30 @@
+# Secrets
 .env
-db/
-logs/
+*.key
 
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
 .DS_Store
-*.ipyc
-CLAUDE.md
+
+# Logs
+logs/
+logs/*.log
+*.log
+
+# Data generated
+db/
+!db/cache/
+!db/cache/yields.db
+# ↑ Exception : on versionne la DB de cache pour GitHub Actions
+# et pour que Streamlit Cloud ait l'historique au déploiement
+
+# Jupyter
+.ipynb_checkpoints/

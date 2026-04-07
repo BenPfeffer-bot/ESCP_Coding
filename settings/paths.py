@@ -29,9 +29,6 @@ RISKS = SRC / "risks"
 UTILS = SRC / "utils"
 VISUALISATION = SRC / "plots"
 
-# DB
-DB_FILE = CACHE_DIR / "yields.db"
-
 # Streamlit
 APP = SRC / "app"
 

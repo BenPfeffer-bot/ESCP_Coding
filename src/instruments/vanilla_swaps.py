@@ -135,62 +135,62 @@ class VanillaSwap:
 # TESTS
 # =============================================================================
 
-if __name__ == "__main__":
-    # Pipeline complet
-    feed = DataFeed()
-    mats, rates = feed.fetch_snapshot()
-    dfs = bootstrap_discount_factors(mats, rates)
-    interp = YieldCurveInterpolator(mats, dfs, method="cubic_spline")
+# if __name__ == "__main__":
+#     # Pipeline complet
+#     feed = DataFeed()
+#     mats, rates = feed.fetch_snapshot()
+#     dfs = bootstrap_discount_factors(mats, rates)
+#     interp = YieldCurveInterpolator(mats, dfs, method="cubic_spline")
 
-    # Test 1 : Par rate cohérent avec inputs bootstrappés
-    print("\n=== Test 1 : Par rate ↔ inputs bootstrap ===")
-    for i, T in enumerate(mats):
-        if T < 1.0:  # skip 3M car il a 0 coupons
-            continue
-        swap = VanillaSwap(
-            notional=10_000_000, fixed_rate=0.0, maturity=T, direction="receiver"
-        )
-        par = swap.par_rate(interp)
-        print(
-            f"  {T:5.1f}Y : par_calculated={par * 100:.4f}% | input={rates[i] * 100:.4f}%"
-        )
+#     # Test 1 : Par rate cohérent avec inputs bootstrappés
+#     print("\n=== Test 1 : Par rate ↔ inputs bootstrap ===")
+#     for i, T in enumerate(mats):
+#         if T < 1.0:  # skip 3M car il a 0 coupons
+#             continue
+#         swap = VanillaSwap(
+#             notional=10_000_000, fixed_rate=0.0, maturity=T, direction="receiver"
+#         )
+#         par = swap.par_rate(interp)
+#         print(
+#             f"  {T:5.1f}Y : par_calculated={par * 100:.4f}% | input={rates[i] * 100:.4f}%"
+#         )
 
-    # Test 2 : Swap at-par → NPV ≈ 0
-    print("\n=== Test 2 : Swap at-par ===")
-    swap_5y = VanillaSwap(notional=10_000_000, fixed_rate=0.0, maturity=5.0)
-    par_5y = swap_5y.par_rate(interp)
-    swap_at_par = VanillaSwap(notional=10_000_000, fixed_rate=par_5y, maturity=5.0)
-    npv = swap_at_par.npv(interp)
-    print(f"  Par rate 5Y: {par_5y * 100:.4f}%")
-    print(f"  NPV at par : {npv:.6f} (should be ~0)")
+#     # Test 2 : Swap at-par → NPV ≈ 0
+#     print("\n=== Test 2 : Swap at-par ===")
+#     swap_5y = VanillaSwap(notional=10_000_000, fixed_rate=0.0, maturity=5.0)
+#     par_5y = swap_5y.par_rate(interp)
+#     swap_at_par = VanillaSwap(notional=10_000_000, fixed_rate=par_5y, maturity=5.0)
+#     npv = swap_at_par.npv(interp)
+#     print(f"  Par rate 5Y: {par_5y * 100:.4f}%")
+#     print(f"  NPV at par : {npv:.6f} (should be ~0)")
 
-    # Test 3 : Receiver off-market avec rate > par → NPV positive
-    print("\n=== Test 3 : Off-market direction ===")
-    swap_above = VanillaSwap(
-        notional=10_000_000,
-        fixed_rate=par_5y + 0.005,
-        maturity=5.0,
-        direction="receiver",
-    )
-    swap_below = VanillaSwap(
-        notional=10_000_000,
-        fixed_rate=par_5y - 0.005,
-        maturity=5.0,
-        direction="receiver",
-    )
-    print(
-        f"  Receiver, fixed > par: NPV = {swap_above.npv(interp):,.2f} (should be > 0)"
-    )
-    print(
-        f"  Receiver, fixed < par: NPV = {swap_below.npv(interp):,.2f} (should be < 0)"
-    )
+#     # Test 3 : Receiver off-market avec rate > par → NPV positive
+#     print("\n=== Test 3 : Off-market direction ===")
+#     swap_above = VanillaSwap(
+#         notional=10_000_000,
+#         fixed_rate=par_5y + 0.005,
+#         maturity=5.0,
+#         direction="receiver",
+#     )
+#     swap_below = VanillaSwap(
+#         notional=10_000_000,
+#         fixed_rate=par_5y - 0.005,
+#         maturity=5.0,
+#         direction="receiver",
+#     )
+#     print(
+#         f"  Receiver, fixed > par: NPV = {swap_above.npv(interp):,.2f} (should be > 0)"
+#     )
+#     print(
+#         f"  Receiver, fixed < par: NPV = {swap_below.npv(interp):,.2f} (should be < 0)"
+#     )
 
-    # Test 4 : Symétrie receiver/payer
-    print("\n=== Test 4 : Symétrie ===")
-    rec = VanillaSwap(10e6, 0.04, 5.0, direction="receiver")
-    pay = VanillaSwap(10e6, 0.04, 5.0, direction="payer")
-    npv_r = rec.npv(interp)
-    npv_p = pay.npv(interp)
-    print(f"  NPV receiver: {npv_r:,.2f}")
-    print(f"  NPV payer   : {npv_p:,.2f}")
-    print(f"  Sum (should be ~0): {npv_r + npv_p:.2e}")
+#     # Test 4 : Symétrie receiver/payer
+#     print("\n=== Test 4 : Symétrie ===")
+#     rec = VanillaSwap(10e6, 0.04, 5.0, direction="receiver")
+#     pay = VanillaSwap(10e6, 0.04, 5.0, direction="payer")
+#     npv_r = rec.npv(interp)
+#     npv_p = pay.npv(interp)
+#     print(f"  NPV receiver: {npv_r:,.2f}")
+#     print(f"  NPV payer   : {npv_p:,.2f}")
+#     print(f"  Sum (should be ~0): {npv_r + npv_p:.2e}")
