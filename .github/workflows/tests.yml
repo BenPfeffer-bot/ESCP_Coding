@@ -1,0 +1,118 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Ne déclenche que si du code Python ou config tests change
+      - 'src/**'
+      - 'tests/**'
+      - 'requirements*.txt'
+      - 'pyproject.toml'
+      - '.github/workflows/tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'requirements*.txt'
+      - 'pyproject.toml'
+      - '.github/workflows/tests.yml'
+  workflow_dispatch:  # Trigger manuel depuis l'UI GitHub
+
+# Annule les runs précédents si un nouveau commit arrive sur la même branche
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Run pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11']
+        # Pour tester sur plusieurs versions, ajoute : ['3.11', '3.12']
+    
+    steps:
+      # ─────────────────────────────────────────────────
+      #  1. Checkout
+      # ─────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      # ─────────────────────────────────────────────────
+      #  2. Setup Python avec cache pip
+      # ─────────────────────────────────────────────────
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      
+      # ─────────────────────────────────────────────────
+      #  3. Install dependencies
+      # ─────────────────────────────────────────────────
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      
+      # ─────────────────────────────────────────────────
+      #  4. Lint check (ruff)
+      # ─────────────────────────────────────────────────
+      - name: Lint with ruff
+        run: |
+          pip install ruff
+          ruff check src/ tests/ || true
+          # Le `|| true` empêche le job de fail si lint a des warnings.
+          # Retire-le quand tu veux que le lint soit bloquant.
+      
+      # ─────────────────────────────────────────────────
+      #  5. Run pytest with coverage
+      # ─────────────────────────────────────────────────
+      - name: Run tests with coverage
+        env:
+          # Stub la clé FRED pour que les imports passent (pas d'appel API en unit tests)
+          FRED_API_KEY: dummy_key_for_tests
+        run: |
+          python -m pytest \
+            --cov=src \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-report=html \
+            -v
+      
+      # ─────────────────────────────────────────────────
+      #  6. Upload coverage report (artifact)
+      # ─────────────────────────────────────────────────
+      - name: Upload coverage HTML report
+        if: always()  # Upload même si les tests fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html-${{ matrix.python-version }}
+          path: htmlcov/
+          retention-days: 14
+      
+      # ─────────────────────────────────────────────────
+      #  7. Display test summary in GitHub UI
+      # ─────────────────────────────────────────────────
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Python version: ${{ matrix.python-version }}" >> $GITHUB_STEP_SUMMARY
+          echo "Status: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f coverage.xml ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Coverage report uploaded as artifact" >> $GITHUB_STEP_SUMMARY
+          fi

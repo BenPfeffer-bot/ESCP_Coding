@@ -7,6 +7,13 @@ se recalculer en temps réel.
 
 import streamlit as st
 import numpy as np
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parent.parent.parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from src.app.state import (
     init_state,
