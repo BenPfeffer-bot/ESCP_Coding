@@ -14,14 +14,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-FRED_API_KEY = os.getenv("fred_api_key")
+FRED_API_KEY = os.getenv("FRED_API_KEY")
 
 if FRED_API_KEY is None:
     import warnings
 
     warnings.warn(
         "FRED_API_KEY non défini dans .env — le gap-fill FRED sera désactivé. "
-        "Crée un fichier .env avec: fred_api_key=ta_cle_ici"
+        "Crée un fichier .env avec: FRED_API_KEY=ta_cle_ici"
     )
 
 # yfinance — CBOE Treasury indices
