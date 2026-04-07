@@ -10,6 +10,7 @@ Tickers:
 """
 
 import time
+import traceback
 import numpy as np
 import yfinance as yf
 from datetime import datetime
@@ -96,6 +97,7 @@ class DataFeed:
             return self._fred_cache.copy()
 
         yields = {}
+        failed = []
 
         for maturity, series_id in FREDAPI_SERIES.items():
             try:
@@ -104,10 +106,25 @@ class DataFeed:
                 )
                 latest = data.dropna().iloc[-1]
                 yields[maturity] = latest / 100
+                self.logger.debug(
+                    f"FRED {series_id} (mat={maturity}Y): ok → {latest / 100:.4f}"
+                )
             except Exception as e:
-                self.logger.warning(f"FRED {series_id} (mat={maturity}): {e}")
+                failed.append(series_id)
+                self.logger.warning(
+                    f"FRED {series_id} (mat={maturity}Y) échec "
+                    f"[{type(e).__name__}]: {e}\n"
+                    f"{traceback.format_exc().strip()}"
+                )
 
-        self.logger.info(f"FRED yields: {yields}")
+        n_ok, n_total = len(yields), len(FREDAPI_SERIES)
+        if failed:
+            self.logger.warning(
+                f"FRED: {n_ok}/{n_total} séries récupérées — échecs: {failed}"
+            )
+        else:
+            self.logger.info(f"FRED yields ({n_ok}/{n_total}): {yields}")
+
         self._fred_cache = yields
         self._fred_cache_date = today
 
@@ -163,9 +180,18 @@ class DataFeed:
         self.last_update = datetime.now()
         self.last_yields = dict(zip(maturites, rates))
 
-        self.logger.info(
-            f"[{self.last_update:%H:%M:%S}] Snapshot OK — {len(maturites)} maturités"
-        )
+        n_expected = len(TICKERS_YFINANCE) + len(FREDAPI_SERIES)
+        n_got = len(maturites)
+        if n_got < n_expected:
+            self.logger.warning(
+                f"[{self.last_update:%H:%M:%S}] Courbe dégradée: "
+                f"{n_got}/{n_expected} points — maturités manquantes: "
+                f"{sorted(set(list(TICKERS_YFINANCE.values()) + list(FREDAPI_SERIES.keys())) - set(maturites.tolist()))}"
+            )
+        else:
+            self.logger.info(
+                f"[{self.last_update:%H:%M:%S}] Snapshot OK — {n_got} maturités"
+            )
         return maturites, rates
 
     def start_live(self, callback=None, max_iterations=None):

@@ -17,7 +17,9 @@ Convention :
 
 import numpy as np
 from settings import get_logger
-from curves import YieldCurveInterpolator
+from src.curves.interpolation import YieldCurveInterpolator
+from src.curves.bootstrapper import bootstrap_discount_factors
+from src.api.data_feed import DataFeed
 
 
 class VanillaSwap:
@@ -50,120 +52,81 @@ class VanillaSwap:
         self.payment_frequency = payment_frequency
         self.direction = direction
         self.logger = get_logger(name="swap-pricer")
-        # TODO: Générer le schedule de paiement
-        # Hint: np.arange(payment_frequency, maturity + payment_frequency/2, payment_frequency)
-        # Attention aux cas limites (ex: maturity pas multiple de frequency)
-        self.payment_dates = None  # TODO
+        self.logger.info(
+            f"Initialisation VanillaSwap: notional={notional}, fixed_rate={fixed_rate}, "
+            f"maturity={maturity}, payment_frequency={payment_frequency}, direction={direction}"
+        )
+        self.payment_dates = self._generate_schedule()
+        self.logger.debug(f"Dates de paiement générées: {self.payment_dates}")
 
     def _generate_schedule(self) -> np.ndarray:
         """
-        Génère les dates de paiement.
-
-        Ex: maturity=5, frequency=1.0 → [1.0, 2.0, 3.0, 4.0, 5.0]
-        Ex: maturity=5, frequency=0.5 → [0.5, 1.0, 1.5, ..., 5.0]
-
-        TODO: Implémenter
+        Génère les dates de paiement
         """
+        n_payments = int(round(self.maturity / self.payment_frequency))
+        payment_schedule = np.array(
+            [self.payment_frequency * (i + 1) for i in range(n_payments)]
+        )
+        self.logger.debug(
+            f"Générés n_payments={n_payments}, échéances={payment_schedule}"
+        )
+        return payment_schedule
 
-        raise NotImplementedError("TODO: Implémenter _generate_schedule")
+    def _annuity(self, interpolator):
+        """Sum of tau_i * Z(0, T_i) — utilisé dans fixed leg et par rate."""
+        taus = np.diff(np.insert(self.payment_dates, 0, 0.0))
+        dfs = np.array([interpolator.discount_factor(T) for T in self.payment_dates])
+        annuity_sum = np.sum(taus * dfs)
+        self.logger.debug(
+            f"Calcul annuity: taus={taus}, dfs={dfs}, annuity_sum={annuity_sum}, Z_N={dfs[-1]}"
+        )
+        return annuity_sum, dfs[-1]  # annuity, Z_N
 
     def pv_fixed_leg(self, interpolator: YieldCurveInterpolator) -> float:
         """
-        Calcule la PV de la jambe fixe.
+        Calcule la PV de la jambe fixe
 
         PV_fixe = sum_{i=1}^{N} (c * tau_i * Z(0, T_i)) + Z(0, T_N)
-
         Où :
           c = self.fixed_rate
           tau_i = durée de la période i (= payment_frequency en simplifié)
           Z(0, T_i) = discount factor interpolé à la date T_i
         """
-        schedule = self.payment_dates
-        taus = np.diff(np.insert(schedule, 0, 0.0))
-        pv = 0
-        for tau_i, T_i in zip(taus, schedule):
-            Z_i = interpolator.discount_factor(T_i)
-            pv += self.fixed_rate * tau_i * Z_i
+        annuity, Z_N = self._annuity(interpolator)
+        pv_fixed = self.fixed_rate * annuity + Z_N
+        self.logger.info(
+            f"PV Fixed Leg calculée: fixed_rate={self.fixed_rate}, annuity={annuity}, Z_N={Z_N}, PV_fixe={pv_fixed}"
+        )
+        return pv_fixed
 
-    def pv_floating_leg(
-        self, discount_factors: np.ndarray, maturities: np.ndarrays
-    ) -> float:
+    def pv_floating_leg(self, interpolator: YieldCurveInterpolator) -> float:
         """
-        Simplification : à une date de coupon, PV_float = 1.0 (par).
+        Simplification : à une date de coupon, PV_float = 1.0 (par)
         """
+        self.logger.info("PV Floating Leg (simplifié)= 1.0 (par)")
         return 1.0
 
-    def npv(self, discount_factors: np.ndarray, maturities: np.ndarray) -> float:
-        """
-        Net Present Value du swap.
-
-        Receiver : NPV = (PV_fixe - PV_float) * notional
-        Payer    : NPV = (PV_float - PV_fixe) * notional
-        """
-        try:
-            pv_fixed = self.pv_fixed_leg(discount_factors, maturities)
-            pv_float = self.pv_floating_leg(discount_factors, maturities)
-        except:
-            self.logger.error("Erreur dans le calcul du NPV du swap :\n")
-            raise
-
-        if self.direction == "receiver":
-            self.logger.info((pv_fixed - pv_float) * self.notional)
-            return (pv_fixed - pv_float) * self.notional
-
-        elif self.direction == "payer":
-            self.logger.info((pv_float - pv_fixed) * self.notional)
-            return (pv_float - pv_fixed) * self.notional
-        else:
-            raise ValueError(f"Direction inconnue : {self.direction}")
-
-    def par_rate(self, discount_factors: np.ndarray, maturities: np.ndarray) -> float:
-        """
-        Calcule le taux swap par (le taux fixe qui rend NPV = 0).
-
-        Formule : r_par = (1 - Z(0, T_N)) / (tau * sum Z(0, T_i))
-
-        C'est exactement la formule inverse du bootstrapping !
-
-        Utilise les payment_dates (self.payment_dates, supposée) et les DFs interpolés.
-        """
-        # Si self.payment_dates n'existe pas, fallback sur maturities
-        try:
-            payment_dates = self.payment_dates
-        except AttributeError:
-            payment_dates = maturities
-
-        # On suppose des coupons d'amortissement constant
-        # Calcul des taus (écarts entre les payment dates)
-        taus = np.diff(np.insert(payment_dates, 0, 0.0))
-
-        # Interpoler les DFs aux payment dates,
-        # si nécessaire (sinon prendre tel quel)
-        if len(payment_dates) == len(discount_factors) and np.allclose(
-            payment_dates, maturities
-        ):
-            dfs = discount_factors
-        else:
-            # Interpolation sur les payment_dates
-            interpolator = YieldCurveInterpolator(maturities, discount_factors)
-            dfs = np.array([interpolator.discount_factor(T) for T in payment_dates])
-
-        # Numerateur : 1 - DF(final)
-        numer = 1.0 - dfs[-1]
-        # Dénominateur : sum_i (tau_i * DF(T_i)) — sum sur tous LES paiements
-        denom = np.sum(taus * dfs)
-
-        # Sécurités
-        if denom == 0:
-            self.logger.error("Dénominateur nul dans le calcul du par rate")
-            raise ZeroDivisionError("Dénominateur nul dans le calcul du par rate")
-
-        r_par = numer / denom
+    def npv(self, interpolator):
+        pv_f = self.pv_fixed_leg(interpolator)
+        pv_fl = self.pv_floating_leg(interpolator)
+        sign = 1.0 if self.direction == "receiver" else -1.0
+        npv_res = sign * (pv_f - pv_fl) * self.notional
         self.logger.info(
-            f"Par rate calculé: {r_par} | numerator={numer} | denominator={denom}"
+            f"NPV calculé : direction={self.direction}, PV Fixed={pv_f}, PV Floating={pv_fl}, notional={self.notional}, NPV={npv_res}"
         )
+        return npv_res
 
-        return r_par
+    def par_rate(self, interpolator: YieldCurveInterpolator) -> float:
+        """
+        Calcule le taux swap par (le taux fixe qui rend NPV = 0)
+        Formule : r_par = (1 - Z(0, T_N)) / (tau * sum Z(0, T_i))
+        """
+        annuity, Z_N = self._annuity(interpolator)
+        par_rate_val = (1.0 - Z_N) / annuity
+        self.logger.info(
+            f"Par Rate calculé: annuity={annuity}, Z_N={Z_N}, par_rate={par_rate_val}"
+        )
+        return par_rate_val
 
     def __repr__(self):
         return (
@@ -178,35 +141,62 @@ class VanillaSwap:
 # TESTS
 # =============================================================================
 
-# if __name__ == "__main__":
-#     import sys; sys.path.insert(0, "..")
-#     from data.live_market_data import get_eur_swap_data
-#     from curves.bootstrapper import bootstrap_discount_factors
-#
-#     data = get_eur_swap_data()
-#     dfs = bootstrap_discount_factors(data["maturities"], data["par_swap_rates"])
-#
-#     # Test 1 : Un swap AT PAR doit avoir NPV = 0
-#     # Le taux par à 5Y est data["par_swap_rates"][3] (index du 5Y)
-#     swap_at_par = VanillaSwap(
-#         notional=10_000_000,
-#         fixed_rate=data["par_swap_rates"][3],  # 5Y par rate
-#         maturity=5.0,
-#         direction="receiver"
-#     )
-#     npv = swap_at_par.npv(dfs, data["maturities"])
-#     print(f"Swap at par NPV: {npv:.2f} (should be ~0)")
-#
-#     # Test 2 : Un swap OFF-MARKET a une NPV non nulle
-#     swap_off = VanillaSwap(
-#         notional=10_000_000,
-#         fixed_rate=0.035,  # au-dessus du par
-#         maturity=5.0,
-#         direction="receiver"
-#     )
-#     npv_off = swap_off.npv(dfs, data["maturities"])
-#     print(f"Swap off-market NPV: {npv_off:,.2f} (should be > 0 for receiver)")
-#
-#     # Test 3 : Par rate doit matcher le taux swap d'input
-#     par = swap_at_par.par_rate(dfs, data["maturities"])
-#     print(f"Par rate calculé: {par*100:.4f}% vs input: {data['par_swap_rates'][3]*100:.4f}%")
+if __name__ == "__main__":
+    # Pipeline complet
+    feed = DataFeed()
+    mats, rates = feed.fetch_snapshot()
+    dfs = bootstrap_discount_factors(mats, rates)
+    interp = YieldCurveInterpolator(mats, dfs, method="cubic_spline")
+
+    # Test 1 : Par rate cohérent avec inputs bootstrappés
+    print("\n=== Test 1 : Par rate ↔ inputs bootstrap ===")
+    for i, T in enumerate(mats):
+        if T < 1.0:  # skip 3M car il a 0 coupons
+            continue
+        swap = VanillaSwap(
+            notional=10_000_000, fixed_rate=0.0, maturity=T, direction="receiver"
+        )
+        par = swap.par_rate(interp)
+        print(
+            f"  {T:5.1f}Y : par_calculated={par * 100:.4f}% | input={rates[i] * 100:.4f}%"
+        )
+
+    # Test 2 : Swap at-par → NPV ≈ 0
+    print("\n=== Test 2 : Swap at-par ===")
+    swap_5y = VanillaSwap(notional=10_000_000, fixed_rate=0.0, maturity=5.0)
+    par_5y = swap_5y.par_rate(interp)
+    swap_at_par = VanillaSwap(notional=10_000_000, fixed_rate=par_5y, maturity=5.0)
+    npv = swap_at_par.npv(interp)
+    print(f"  Par rate 5Y: {par_5y * 100:.4f}%")
+    print(f"  NPV at par : {npv:.6f} (should be ~0)")
+
+    # Test 3 : Receiver off-market avec rate > par → NPV positive
+    print("\n=== Test 3 : Off-market direction ===")
+    swap_above = VanillaSwap(
+        notional=10_000_000,
+        fixed_rate=par_5y + 0.005,
+        maturity=5.0,
+        direction="receiver",
+    )
+    swap_below = VanillaSwap(
+        notional=10_000_000,
+        fixed_rate=par_5y - 0.005,
+        maturity=5.0,
+        direction="receiver",
+    )
+    print(
+        f"  Receiver, fixed > par: NPV = {swap_above.npv(interp):,.2f} (should be > 0)"
+    )
+    print(
+        f"  Receiver, fixed < par: NPV = {swap_below.npv(interp):,.2f} (should be < 0)"
+    )
+
+    # Test 4 : Symétrie receiver/payer
+    print("\n=== Test 4 : Symétrie ===")
+    rec = VanillaSwap(10e6, 0.04, 5.0, direction="receiver")
+    pay = VanillaSwap(10e6, 0.04, 5.0, direction="payer")
+    npv_r = rec.npv(interp)
+    npv_p = pay.npv(interp)
+    print(f"  NPV receiver: {npv_r:,.2f}")
+    print(f"  NPV payer   : {npv_p:,.2f}")
+    print(f"  Sum (should be ~0): {npv_r + npv_p:.2e}")
