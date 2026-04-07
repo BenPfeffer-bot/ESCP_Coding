@@ -1,9 +1,7 @@
 """
-vanilla_swap.py — Module 3 : Interest Rate Swap Pricer
-=======================================================
 Objectif : Pricer un IRS vanille off-market.
 
-Théorie (Jha Ch.5) :
+Théorie (Jha) :
     - Jambe fixe = somme des coupons fixes actualisés + principal fictif
     - Jambe flottante = par (= 1.0) à une date de coupon
     - PV_fixe = sum_{i=1}^{N} c * tau_i * Z(0, T_i) + Z(0, T_N)
@@ -83,27 +81,23 @@ class VanillaSwap:
         return annuity_sum, dfs[-1]  # annuity, Z_N
 
     def pv_fixed_leg(self, interpolator: YieldCurveInterpolator) -> float:
-        """
-        Calcule la PV de la jambe fixe
+        """PV de la jambe fixe."""
+        schedule = self.payment_dates
+        taus = np.diff(np.insert(schedule, 0, 0.0))
 
-        PV_fixe = sum_{i=1}^{N} (c * tau_i * Z(0, T_i)) + Z(0, T_N)
-        Où :
-          c = self.fixed_rate
-          tau_i = durée de la période i (= payment_frequency en simplifié)
-          Z(0, T_i) = discount factor interpolé à la date T_i
-        """
-        annuity, Z_N = self._annuity(interpolator)
-        pv_fixed = self.fixed_rate * annuity + Z_N
-        self.logger.info(
-            f"PV Fixed Leg calculée: fixed_rate={self.fixed_rate}, annuity={annuity}, Z_N={Z_N}, PV_fixe={pv_fixed}"
-        )
-        return pv_fixed
+        pv = 0.0
+        for tau_i, T_i in zip(taus, schedule):
+            Z_i = interpolator.discount_factor(T_i)
+            pv += self.fixed_rate * tau_i * Z_i
+
+        # Principal fictif à T_N
+        Z_N = interpolator.discount_factor(schedule[-1])
+        pv += Z_N
+
+        return pv
 
     def pv_floating_leg(self, interpolator: YieldCurveInterpolator) -> float:
-        """
-        Simplification : à une date de coupon, PV_float = 1.0 (par)
-        """
-        self.logger.info("PV Floating Leg (simplifié)= 1.0 (par)")
+        """À une date de coupon, la jambe flottante vaut par."""
         return 1.0
 
     def npv(self, interpolator):
