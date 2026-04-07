@@ -1,0 +1,31 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",                    # verbose
+    "--strict-markers",      # erreur si marker inconnu
+    "--tb=short",            # tracebacks courts
+    "--color=yes",
+]
+markers = [
+    "slow: tests slow to run",
+    "integration: integration tests requiring external APIs",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "src/tests/*",        # Tests visuels (à part)
+    "src/api/*",          # API calls (couverts par tests intégration)
+    "src/plots/*",        # Visual testing
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

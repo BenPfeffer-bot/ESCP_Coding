@@ -16,13 +16,13 @@ from src.app.state import has_market_data, KEY_MATS, KEY_RATES
 # ═══════════════════════════════════════════════════════════
 
 st.set_page_config(
-    page_title="Rates Desk",
+    page_title="ESCP Coding Project - Rates Desk",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
         "About": (
-            "**Rates Desk** — US Treasury Pricer & Risk Engine\n\n"
+            "**ESCP Coding Project Rates Desk** — US Treasury Pricer & Risk Engine\n\n"
             "A pedagogical quant finance project covering the full "
             "pipeline of a rates trading desk: data feed → bootstrap → "
             "interpolation → pricing → risk analytics."
@@ -46,7 +46,7 @@ ensure_market_data_loaded()
 #  PAGE D'ACCUEIL
 # ═══════════════════════════════════════════════════════════
 
-st.title("📊 Rates Desk")
+st.title("📊 ESCP Project - Rates")
 st.caption("US Treasury Pricer & Risk Engine — April 2026")
 
 st.markdown("""
